@@ -1,6 +1,6 @@
 // Archivo: src/screens/FrequencyScreen.js
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, Button, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
 import { HabitContext } from '../context/HabitContext';
 
 export default function FrequencyScreen({ navigation }) {
@@ -22,16 +22,19 @@ export default function FrequencyScreen({ navigation }) {
       (selectedFrequency === 'Días específicos de la semana' && selectedDays.length === 0) ||
       (selectedFrequency === 'Días específicos del mes' && selectedDates.length === 0)
     ) {
-      alert('Selecciona al menos un día para la frecuencia especificada.');
+      Alert.alert('Error', 'Selecciona al menos un día para la frecuencia especificada.');
       return;
     }
 
+    // Guardar la selección en el contexto
     setHabitData({
       ...habitData,
       frequency: selectedFrequency,
       selectedDays: selectedDays,
       selectedDates: selectedDates,
     });
+
+    // Navegar a la pantalla de Recordatorio
     navigation.navigate('Recordatorio');
   };
 
@@ -76,10 +79,27 @@ export default function FrequencyScreen({ navigation }) {
         ))}
       </View>
       <View style={styles.buttonContainer}>
-        <Button title="Anterior" onPress={() => navigation.navigate('Mis Hábitos')} />
-        <Button title="Siguiente" onPress={handleNext} disabled={!selectedFrequency} />
+        <TouchableOpacity
+          style={styles.navigationButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.navigationButtonText}>Anterior</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.navigationButton,
+            !selectedFrequency && styles.disabledButton, // Deshabilitar el botón si no hay frecuencia seleccionada
+          ]}
+          onPress={handleNext}
+          disabled={!selectedFrequency}
+        >
+          <Text style={styles.navigationButtonText}>Siguiente</Text>
+        </TouchableOpacity>
       </View>
 
+
+
+      {/* Modal para seleccionar días específicos de la semana */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -103,6 +123,7 @@ export default function FrequencyScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Modal para seleccionar días específicos del mes */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -164,10 +185,27 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     position: 'absolute',
     bottom: 32,
     left: 16,
     right: 16,
+  },
+  navigationButton: {
+    flex: 1, // Asegura que ambos botones tengan el mismo tamaño
+    marginHorizontal: 8, // Espaciado uniforme entre botones
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#007bff',
+    alignItems: 'center',
+  },
+  navigationButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc', // Color de fondo para el estado deshabilitado
   },
   modalContainer: {
     flex: 1,
@@ -231,3 +269,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+
+
+

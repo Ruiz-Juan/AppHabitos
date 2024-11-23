@@ -2,7 +2,7 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-const SERVER_URL = 'http://localhost:3000/send-notification';
+const SERVER_URL = 'https://apphabitos-backend-production.up.railway.app';
 
 export const registerForPushNotificationsAsync = async () => {
   let token;

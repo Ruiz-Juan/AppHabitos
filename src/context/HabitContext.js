@@ -19,3 +19,4 @@ export const HabitProvider = ({ children }) => {
     </HabitContext.Provider>
   );
 };
+

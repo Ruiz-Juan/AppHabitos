@@ -1,41 +1,69 @@
 // Archivo: src/screens/EditFrequencyScreen.js
-import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, Button, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
 import { HabitContext } from '../context/HabitContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, firestore } from '../services/firebase';
 
 export default function EditFrequencyScreen({ navigation }) {
   const { habitData, setHabitData } = useContext(HabitContext);
-  const [selectedFrequency, setSelectedFrequency] = useState(habitData.frequency || '');
+  const [selectedFrequency, setSelectedFrequency] = useState(habitData.frequency || 'Todos los días');
   const [selectedDays, setSelectedDays] = useState(habitData.selectedDays || []);
   const [selectedDates, setSelectedDates] = useState(habitData.selectedDates || []);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isMonthModalVisible, setIsMonthModalVisible] = useState(false);
 
   useEffect(() => {
-    setSelectedFrequency(habitData.frequency);
+    setSelectedFrequency(habitData.frequency || 'Todos los días');
     setSelectedDays(habitData.selectedDays || []);
     setSelectedDates(habitData.selectedDates || []);
   }, [habitData]);
 
-  const handleSave = () => {
-    setHabitData({
-      ...habitData,
-      frequency: selectedFrequency,
-      selectedDays: selectedFrequency === 'Días específicos de la semana' ? selectedDays : [],
-      selectedDates: selectedFrequency === 'Días específicos del mes' ? selectedDates : [],
-    });
-    navigation.goBack();
+  const handleSave = async () => {
+    if (
+      (selectedFrequency === 'Días específicos de la semana' && selectedDays.length === 0) ||
+      (selectedFrequency === 'Días específicos del mes' && selectedDates.length === 0)
+    ) {
+      Alert.alert('Error', 'Selecciona al menos un día para la frecuencia especificada.');
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('Usuario no autenticado.');
+      }
+
+      const habitRef = doc(firestore, 'users', user.uid, 'habits', habitData.id);
+
+      const updateData = {
+        frequency: selectedFrequency,
+        selectedDays: selectedFrequency === 'Días específicos de la semana' ? selectedDays : [],
+        selectedDates: selectedFrequency === 'Días específicos del mes' ? selectedDates : [],
+      };
+
+      // Guardar en Firestore
+      await updateDoc(habitRef, updateData);
+
+      // Actualizar contexto
+      setHabitData({
+        ...habitData,
+        ...updateData,
+      });
+
+      Alert.alert('Éxito', 'Frecuencia actualizada correctamente.');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error al guardar la frecuencia:', error);
+      Alert.alert('Error', 'Hubo un problema al guardar los cambios.');
+    }
   };
 
   const handleFrequencySelection = (option) => {
     setSelectedFrequency(option);
-
-    // Limpiar selección de días de la semana y días del mes si se selecciona otra opción
     if (option === 'Todos los días') {
       setSelectedDays([]);
       setSelectedDates([]);
-      setIsModalVisible(false);
-      setIsMonthModalVisible(false);
     } else if (option === 'Días específicos de la semana') {
       setSelectedDates([]);
       setIsModalVisible(true);
@@ -72,9 +100,10 @@ export default function EditFrequencyScreen({ navigation }) {
         ))}
       </View>
       <View style={styles.buttonContainer}>
-        <Button title="Guardar Frecuencia" onPress={handleSave} disabled={!selectedFrequency} />
+        <Button title="Guardar" onPress={handleSave} disabled={!selectedFrequency} />
       </View>
 
+      {/* Modal para seleccionar días específicos de la semana */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -98,6 +127,7 @@ export default function EditFrequencyScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Modal para seleccionar días específicos del mes */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -127,97 +157,21 @@ export default function EditFrequencyScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 32,
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  optionsContainer: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    marginBottom: 24,
-  },
-  option: {
-    padding: 16,
-    marginVertical: 8,
-    borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 8,
-  },
-  selectedOption: {
-    backgroundColor: '#d3d3d3',
-  },
-  optionText: {
-    fontSize: 18,
-  },
-  buttonContainer: {
-    marginTop: 20,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  checkboxContainerAligned: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 5,
-    justifyContent: 'flex-start',
-    width: '100%',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: 'gray',
-    borderRadius: 3,
-    marginRight: 8,
-  },
-  checkedCheckbox: {
-    backgroundColor: '#d3d3d3',
-  },
-  checkboxLabel: {
-    fontSize: 16,
-  },
-  datesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  dateButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'gray',
-  },
-  selectedDateButton: {
-    backgroundColor: '#d3d3d3',
-  },
-  dayButtonText: {
-    fontSize: 16,
-  },
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 24, textAlign: 'center', marginBottom: 16 },
+  optionsContainer: { flex: 1, justifyContent: 'center' },
+  option: { padding: 16, borderWidth: 1, borderColor: 'gray', marginVertical: 8 },
+  selectedOption: { backgroundColor: '#d3d3d3' },
+  buttonContainer: { marginTop: 16 },
+  modalContainer: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: { backgroundColor: 'white', padding: 20, borderRadius: 10, alignItems: 'center' },
+  modalTitle: { fontSize: 20, marginBottom: 16 },
+  checkboxContainerAligned: { flexDirection: 'row', alignItems: 'center', marginVertical: 5 },
+  checkbox: { width: 20, height: 20, borderWidth: 1, marginRight: 8 },
+  checkedCheckbox: { backgroundColor: 'gray' },
+  checkboxLabel: { fontSize: 16 },
+  datesContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  dateButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', margin: 5, borderRadius: 20 },
+  selectedDateButton: { backgroundColor: 'gray' },
+  dayButtonText: { fontSize: 16 },
 });

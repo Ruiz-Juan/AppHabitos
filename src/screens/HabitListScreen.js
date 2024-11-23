@@ -1,48 +1,83 @@
 // Archivo: src/screens/HabitListScreen.js
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { collection, getDocs } from 'firebase/firestore';
+import { auth, firestore } from '../services/firebase';
 
 export default function HabitListScreen({ navigation }) {
   const [habits, setHabits] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const loadHabits = async () => {
+    const fetchHabits = async () => {
+      setLoading(true);
       try {
-        const storedHabits = await AsyncStorage.getItem('@habits');
-        const parsedHabits = storedHabits ? JSON.parse(storedHabits) : [];
+        const user = auth.currentUser;
+        if (!user) {
+          throw new Error('Usuario no autenticado');
+        }
 
-        const validHabits = parsedHabits.filter(habit => habit.habitName && habit.habitName.trim() !== "");
-        setHabits(validHabits);
-        console.log('Hábitos cargados:', validHabits);
-      } catch (e) {
-        console.error('Error al cargar los hábitos:', e);
+        // Obtener la referencia a la colección de hábitos del usuario
+        const habitsRef = collection(firestore, 'users', user.uid, 'habits');
+        const querySnapshot = await getDocs(habitsRef);
+
+        // Mapear los datos obtenidos a un formato adecuado
+        const habitsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setHabits(habitsData);
+      } catch (error) {
+        console.error('Error al cargar hábitos:', error);
+        Alert.alert('Error', 'No se pudieron cargar los hábitos. Por favor, inténtelo más tarde.');
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadHabits();
-    const unsubscribe = navigation.addListener('focus', loadHabits);
+    fetchHabits();
+
+    // Listener para recargar hábitos al volver a la pantalla
+    const unsubscribe = navigation.addListener('focus', fetchHabits);
     return unsubscribe;
   }, [navigation]);
+
+  const handleHabitPress = (habit) => {
+    navigation.navigate('Editar Hábito', { habit });
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Mis Hábitos</Text>
-      <FlatList
-        data={habits}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            style={styles.habitContainer}
-            onPress={() => navigation.navigate('Editar Hábito', { habit: item, index })}
-          >
-            <Text style={styles.habitName}>{item.habitName}</Text>
-            <Text style={styles.habitStreak}>{item.description}</Text>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No tienes hábitos registrados aún.</Text>}
-      />
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('Registrar Hábito')}>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#007bff" />
+      ) : (
+        <FlatList
+          data={habits}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.habitContainer}
+              onPress={() => handleHabitPress(item)}
+            >
+              <Text style={styles.habitName}>{item.habitName}</Text>
+              <Text style={styles.habitDescription}>{item.description}</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              No tienes hábitos registrados aún.
+            </Text>
+          }
+        />
+      )}
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('Registrar Hábito')}
+      >
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
     </View>
@@ -58,30 +93,29 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     textAlign: 'center',
-    marginVertical: 16,
+    marginBottom: 16,
   },
   habitContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
     borderWidth: 1,
-    borderColor: 'gray',
+    borderColor: '#ccc',
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
+    backgroundColor: '#f9f9f9',
   },
   habitName: {
     fontSize: 18,
+    fontWeight: 'bold',
   },
-  habitStreak: {
+  habitDescription: {
     fontSize: 14,
-    color: 'gray',
+    color: '#666',
+    marginTop: 4,
   },
   emptyText: {
     textAlign: 'center',
-    fontSize: 16,
-    color: 'gray',
-    marginTop: 20,
+    marginTop: 16,
+    color: '#999',
   },
   addButton: {
     position: 'absolute',
@@ -93,9 +127,14 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
   addButtonText: {
     color: '#fff',
     fontSize: 24,
+    fontWeight: 'bold',
   },
 });

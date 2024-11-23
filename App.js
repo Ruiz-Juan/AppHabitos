@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { requestFCMPermissionAndToken, saveTokenToFirestore } from './src/services/firebaseMessaging';
 import { auth } from './src/services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
   useEffect(() => {
@@ -33,6 +34,17 @@ export default function App() {
     if (Platform.OS !== 'web') {
       getFCMToken();
     }
+
+    // Listener para cambios en el estado de autenticación
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('Usuario autenticado:', user.email);
+      } else {
+        console.log('Usuario no autenticado');
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (
@@ -41,3 +53,4 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
