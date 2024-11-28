@@ -38,5 +38,5 @@ yarn-error.*
 google-services.json
 
 # Ignorar claves de servicio
-
+.env
 fcm-backend/serviceAccountKey.json
