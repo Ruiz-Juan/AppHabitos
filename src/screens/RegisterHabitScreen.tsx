@@ -1,40 +1,50 @@
-// Archivo: src/screens/RegisterHabitScreen.js
+// Archivo: src/screens/RegisterHabitScreen.tsx
 import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { HabitContext } from '../context/HabitContext';
-import { auth } from '../services/firebase';
+import { supabase } from '../services/supabase'; 
 
-export default function RegisterHabitScreen({ navigation }) {
-  const { habitData, setHabitData } = useContext(HabitContext);
-  const [habitName, setHabitName] = useState(habitData.habitName || '');
-  const [description, setDescription] = useState(habitData.description || '');
+interface RegisterHabitScreenProps {
+  navigation: {
+    navigate: (screen: string) => void;
+  };
+}
 
-  const handleNext = async () => {
+const RegisterHabitScreen: React.FC<RegisterHabitScreenProps> = ({ navigation }) => {
+  const { habitData, setHabitData } = useContext(HabitContext)!;
+
+  const [habitName, setHabitName] = useState<string>(habitData.habitName || '');
+  const [description, setDescription] = useState<string>(habitData.description || '');
+
+  const handleNext = async (): Promise<void> => {
     if (!habitName.trim()) {
       Alert.alert('Error', 'Por favor, ingresa un nombre válido para el hábito.');
       return;
     }
 
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('Error', 'Usuario no autenticado.');
-      return;
-    }
-
-    const newHabit = {
-      habitName: habitName.trim(),
-      description: description.trim(),
-    };
-
     try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const newHabit = {
+        habitName: habitName.trim(),
+        description: description.trim(),
+        user_id: data.user.id, 
+      };
+
       // Guardar temporalmente el hábito en el contexto
-      setHabitData({ ...habitData, ...newHabit });
+      setHabitData((prev) => ({
+        ...prev,
+        ...newHabit,
+      }));
 
       // Navegar a la pantalla de Frecuencia
       navigation.navigate('Frecuencia');
     } catch (error) {
       console.error('Error al manejar el hábito:', error);
-      Alert.alert('Error', 'Hubo un problema al procesar el hábito.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error desconocido');
     }
   };
 
@@ -58,7 +68,7 @@ export default function RegisterHabitScreen({ navigation }) {
       </TouchableOpacity>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -93,3 +103,4 @@ const styles = StyleSheet.create({
   },
 });
 
+export default RegisterHabitScreen;
