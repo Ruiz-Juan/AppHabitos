@@ -1,20 +1,33 @@
-// Archivo: src/screens/RegisterUserScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { supabase } from '../services/supabase';
 
 export default function RegisterUserScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleRegister = () => {
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(userCredentials => {
-        console.log('Usuario registrado:', userCredentials.user.email);
-        navigation.navigate('Login');
-      })
-      .catch(error => alert(error.message));
+  const handleRegister = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Por favor, complete todos los campos.');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Usuario registrado:', data);
+      Alert.alert('Registro Exitoso', 'Por favor, revisa tu correo para verificar tu cuenta.');
+      navigation.replace('Login'); 
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error desconocido');
+    }
   };
 
   return (
@@ -24,13 +37,15 @@ export default function RegisterUserScreen({ navigation }) {
         placeholder="Email"
         style={styles.input}
         value={email}
-        onChangeText={(text) => setEmail(text)}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
       />
       <TextInput
         placeholder="Contraseña"
         style={styles.input}
         value={password}
-        onChangeText={(text) => setPassword(text)}
+        onChangeText={setPassword}
         secureTextEntry
       />
       <Button title="Registrar" onPress={handleRegister} />

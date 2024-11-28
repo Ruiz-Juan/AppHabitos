@@ -1,12 +1,30 @@
-// Archivo: src/screens/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { supabase } from '../services/supabase';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootParamList } from '../navigation/AppNavigator'; // Importa RootParamList para definir tipos
 
-export default function LoginScreen({ navigation }) {
+type LoginScreenNavigationProp = StackNavigationProp<RootParamList, 'Login'>;
+
+type Props = {
+  navigation: LoginScreenNavigationProp;
+};
+
+export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+
+  useEffect(() => {
+    // Verificar cuando la navegación esté lista
+    const unsubscribe = navigation.addListener('state', () => {
+      if (navigation.getState()) {
+        setIsNavigationReady(true);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -15,24 +33,33 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('Usuario autenticado:', userCredential.user);
-      Alert.alert('Bienvenido', `Hola, ${userCredential.user.email}`);
-      navigation.replace('Main'); // Navega al TabNavigator principal
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Usuario autenticado:', data);
+      Alert.alert('Bienvenido', `Hola, ${data.user.email}`);
+
+      // Esperar hasta que la navegación esté lista para evitar problemas
+      if (isNavigationReady) {
+        setTimeout(() => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }, 300); // Pequeño retardo para asegurar la sincronización
+      } else {
+        console.log('Navegación no está lista, intentando más tarde...');
+      }
     } catch (error) {
-      let errorMessage;
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'Usuario no encontrado. Verifique el correo.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Contraseña incorrecta. Inténtelo de nuevo.';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Correo electrónico inválido.';
-          break;
-        default:
-          errorMessage = 'Algo salió mal. Intente de nuevo.';
+      let errorMessage = 'Algo salió mal. Intente de nuevo.';
+      if (error.message === 'Invalid login credentials') {
+        errorMessage = 'Credenciales incorrectas. Verifique el correo o la contraseña.';
       }
       Alert.alert('Error', errorMessage);
     }
